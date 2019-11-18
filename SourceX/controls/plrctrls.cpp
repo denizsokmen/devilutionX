@@ -17,7 +17,14 @@ int speedspellcount = 0;
 // Native game menu, controlled by simulating a keyboard.
 bool InGameMenu()
 {
-	return stextflag > 0 || questlog || helpflag || talkflag || qtextflag || sgpCurrentMenu;
+	return stextflag > 0
+		|| questlog
+		|| helpflag
+		|| talkflag
+		|| qtextflag
+		|| gmenu_exception()
+		|| PauseMode == 2
+		|| plr[myplr]._pInvincible;
 }
 
 namespace {
@@ -662,6 +669,81 @@ void PerformPrimaryAction()
 	}
 
 	Interact();
+}
+
+bool SpellHasActorTarget()
+{
+	int v = plr[myplr]._pRSpell;
+	if (v == SPL_INVALID || v == SPL_TOWN || v == SPL_TELEPORT)
+		return false;
+
+	if (spelldata[v].sTargeted || v == SPL_BONESPIRIT || v == SPL_FLARE) {
+		if (!spelldata[v].sTownSpell && pcursmonst != -1) {
+			cursmx = monster[pcursmonst]._mx;
+			cursmy = monster[pcursmonst]._my;
+			return true;
+		}
+		if ((spelldata[v].sTownSpell || !FriendlyMode) && pcursplr != -1) {
+			cursmx = plr[pcursplr]._px;
+			cursmy = plr[pcursplr]._py;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void UpdateSpellTarget()
+{
+	if (SpellHasActorTarget())
+		return;
+
+	pcursplr = -1;
+	pcursmonst = -1;
+
+	cursmx = plr[myplr]._px;
+	cursmy = plr[myplr]._py;
+	switch (plr[myplr]._pdir) {
+	case DIR_S:
+		cursmx += 1;
+		cursmy += 1;
+		break;
+	case DIR_SW:
+		cursmy += 1;
+		break;
+	case DIR_W:
+		cursmx -= 1;
+		cursmy += 1;
+		break;
+	case DIR_NW:
+		cursmx -= 1;
+		break;
+	case DIR_N:
+		cursmx -= 1;
+		cursmy -= 1;
+		break;
+	case DIR_NE:
+		cursmy -= 1;
+		break;
+	case DIR_E:
+		cursmx += 1;
+		cursmy -= 1;
+		break;
+	case DIR_SE:
+		cursmx += 1;
+		break;
+	}
+}
+
+void PerformSpellAction()
+{
+	if (InGameMenu())
+		return;
+	if (TryIconCurs())
+		return;
+
+	UpdateSpellTarget();
+	CheckPlrSpell();
 }
 
 void PerformSecondaryAction()
